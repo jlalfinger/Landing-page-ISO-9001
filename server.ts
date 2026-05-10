@@ -1,19 +1,14 @@
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
-import * as dotenv from "dotenv";
+import { config } from "dotenv";
 import cookieParser from "cookie-parser";
 import { SignJWT, jwtVerify } from "jose";
-import { initDb, addRegistrant, getRegistrants, getConfig, updateConfig } from "./src/lib/db.ts";
+import { initDb, addRegistrant, getRegistrants, getConfig, updateConfig } from "./src/lib/db";
 
 // Initialize environment variables only if not in production/Vercel
 if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
-  dotenv.config();
-}
-
-console.log(`[Startup] Node Env: ${process.env.NODE_ENV}, Vercel: ${process.env.VERCEL || 'No'}`);
-if (process.env.VERCEL === "1") {
-  console.log(`[Vercel] DB Configured: ${!!process.env.POSTGRES_URL}`);
+  config();
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -25,7 +20,14 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser());
 
-const secret = new TextEncoder().encode(process.env.ADMIN_PASSWORD || "default_dev_secret_123");
+// Lazy-loaded secret
+let _secret: Uint8Array;
+function getSecret() {
+  if (!_secret) {
+    _secret = new TextEncoder().encode(process.env.ADMIN_PASSWORD || "default_dev_secret_123");
+  }
+  return _secret;
+}
 
 // Admin Auth Middleware
 async function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
@@ -34,7 +36,7 @@ async function authMiddleware(req: express.Request, res: express.Response, next:
     return res.status(401).json({ error: "Unauthorized" });
   }
   try {
-    await jwtVerify(token, secret);
+    await jwtVerify(token, getSecret());
     next();
   } catch {
     res.status(401).json({ error: "Invalid token" });
@@ -48,7 +50,7 @@ const pingHandler = (req: express.Request, res: express.Response) => {
   res.status(200).json({ pong: true, time: new Date().toISOString(), url: req.url });
 };
 app.get("/api/ping", pingHandler);
-app.get("/ping", pingHandler); // Success fallback if prefix is stripped
+app.get("/ping", pingHandler); 
 
 // Public: Health Check
 const healthHandler = async (req: express.Request, res: express.Response) => {
@@ -58,6 +60,7 @@ const healthHandler = async (req: express.Request, res: express.Response) => {
       status: "ok", 
       env: process.env.NODE_ENV,
       db_configured: dbStatus,
+      vercel: !!process.env.VERCEL,
       url: req.url
     });
   } catch (err) {
@@ -70,7 +73,6 @@ app.get("/health", healthHandler);
 // Public: Register
 app.post("/api/register", async (req, res, next) => {
   try {
-    console.log("Registration request received:", req.body);
     if (!req.body.fullName || !req.body.email) {
       return res.status(400).json({ error: "Faltan campos requeridos" });
     }
@@ -84,8 +86,8 @@ app.post("/api/register", async (req, res, next) => {
 // Public: Get Config
 app.get("/api/config", async (req, res) => {
   try {
-    const config = await getConfig();
-    res.json(config);
+    const configData = await getConfig();
+    res.json(configData);
   } catch (err) {
     res.status(500).json({ error: "Failed to load config" });
   }
@@ -98,7 +100,7 @@ app.post("/api/admin/login", async (req, res) => {
     const token = await new SignJWT({ admin: true })
       .setProtectedHeader({ alg: "HS256" })
       .setExpirationTime("2h")
-      .sign(secret);
+      .sign(getSecret());
     
     res.cookie("admin_token", token, { 
       httpOnly: true, 

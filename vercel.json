@@ -4,20 +4,21 @@
   "outputDirectory": "dist",
   "rewrites": [
     {
+      "source": "/api/ping",
+      "destination": "/api/ping.ts"
+    },
+    {
       "source": "/api/(.*)",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/ping",
-      "destination": "/api/index.ts"
-    },
-    {
-      "source": "/health",
       "destination": "/api/index.ts"
     },
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "functions": {
+    "api/**/*.ts": {
+      "runtime": "nodejs20.x"
+    }
+  }
 }
