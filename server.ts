@@ -3,7 +3,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { config } from "dotenv";
 import cookieParser from "cookie-parser";
-import { SignJWT, jwtVerify } from "jose";
 import { initDb, addRegistrant, getRegistrants, getConfig, updateConfig } from "./src/lib/db";
 
 // Initialize environment variables only if not in production/Vercel
@@ -19,29 +18,6 @@ const app = express();
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 app.use(cookieParser());
-
-// Lazy-loaded secret
-let _secret: Uint8Array;
-function getSecret() {
-  if (!_secret) {
-    _secret = new TextEncoder().encode(process.env.ADMIN_PASSWORD || "default_dev_secret_123");
-  }
-  return _secret;
-}
-
-// Admin Auth Middleware
-async function authMiddleware(req: express.Request, res: express.Response, next: express.NextFunction) {
-  const token = req.cookies.admin_token;
-  if (!token) {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
-  try {
-    await jwtVerify(token, getSecret());
-    next();
-  } catch {
-    res.status(401).json({ error: "Invalid token" });
-  }
-}
 
 // --- API ROUTES ---
 
@@ -93,40 +69,14 @@ app.get("/api/config", async (req, res) => {
   }
 });
 
-// Admin: Login
-app.post("/api/admin/login", async (req, res) => {
-  const { password } = req.body;
-  if (password === (process.env.ADMIN_PASSWORD || "admin_password_123")) {
-    const token = await new SignJWT({ admin: true })
-      .setProtectedHeader({ alg: "HS256" })
-      .setExpirationTime("2h")
-      .sign(getSecret());
-    
-    res.cookie("admin_token", token, { 
-      httpOnly: true, 
-      sameSite: "strict",
-      secure: process.env.NODE_ENV === "production"
-    });
-    res.json({ success: true });
-  } else {
-    res.status(401).json({ error: "Invalid password" });
-  }
-});
-
-// Admin: Logout
-app.post("/api/admin/logout", (req, res) => {
-  res.clearCookie("admin_token");
-  res.json({ success: true });
-});
-
 // Admin: Get Registrants
-app.get("/api/admin/registrants", authMiddleware, async (req, res) => {
+app.get("/api/admin/registrants", async (req, res) => {
   const registrants = await getRegistrants();
   res.json(registrants);
 });
 
 // Admin: Update Config
-app.post("/api/admin/config", authMiddleware, async (req, res) => {
+app.post("/api/admin/config", async (req, res) => {
   await updateConfig(req.body);
   res.json({ success: true });
 });

@@ -4,13 +4,10 @@ import {
   Download, 
   Settings, 
   Users, 
-  LogOut, 
   Save, 
   AlertCircle,
   Database,
   Trash2,
-  Lock,
-  ChevronRight,
   TrendingUp,
   CheckCircle2
 } from "lucide-react";
@@ -28,9 +25,6 @@ interface Registrant {
 }
 
 export default function AdminPanel() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [registrants, setRegistrants] = useState<Registrant[]>([]);
   const [config, setConfig] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<"registrants" | "config">("registrants");
@@ -38,10 +32,8 @@ export default function AdminPanel() {
   const [exportStatus, setExportStatus] = useState<"idle" | "exporting" | "success">("idle");
 
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchData();
-    }
-  }, [isLoggedIn]);
+    fetchData();
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
@@ -55,26 +47,6 @@ export default function AdminPanel() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const res = await fetch("/api/admin/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
-    });
-    if (res.ok) {
-      setIsLoggedIn(true);
-      setError("");
-    } else {
-      setError("Password incorrecto");
-    }
-  };
-
-  const handleLogout = async () => {
-    await fetch("/api/admin/logout", { method: "POST" });
-    setIsLoggedIn(false);
   };
 
   const [imagePreviews, setImagePreviews] = useState<any>({});
@@ -164,7 +136,6 @@ export default function AdminPanel() {
     }, 800);
   };
 
-  // Logic to calculate candidates per day
   const getStats = () => {
     const stats: { [key: string]: number } = {};
     registrants.forEach(r => {
@@ -173,44 +144,6 @@ export default function AdminPanel() {
     });
     return Object.entries(stats).sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
   };
-
-  if (!isLoggedIn) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50 px-6 swiss-grid">
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="w-full max-w-md bg-white p-10 rounded-[2rem] shadow-2xl border border-stone-200"
-        >
-          <div className="flex justify-center mb-8">
-            <div className="w-16 h-16 bg-stone-900 rounded-2xl flex items-center justify-center text-white">
-              <Lock className="w-8 h-8" />
-            </div>
-          </div>
-          <h1 className="text-3xl font-display font-black text-center text-stone-900 mb-2">Panel Administrativo</h1>
-          <p className="text-center text-stone-500 text-sm mb-8">Ingrese su contraseña para continuar</p>
-          
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-stone-400">Password</label>
-              <input 
-                type="password" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-4 bg-stone-50 border border-stone-200 rounded-xl focus:ring-2 focus:ring-stone-900/10 focus:border-stone-900 focus:outline-none transition-all"
-                placeholder="••••••••"
-                autoFocus
-              />
-            </div>
-            {error && <p className="text-xs text-red-600 font-bold flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {error}</p>}
-            <button className="w-full py-4 bg-stone-900 hover:bg-stone-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all">
-              Acceder al Dashboard <ChevronRight className="w-4 h-4" />
-            </button>
-          </form>
-        </motion.div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-stone-50 flex">
@@ -243,12 +176,6 @@ export default function AdminPanel() {
         </nav>
 
         <div className="pt-6 border-t border-white/5">
-          <button 
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-stone-400 hover:bg-red-500/10 hover:text-red-400 transition-all"
-          >
-            <LogOut className="w-4 h-4" /> Cerrar Sesión
-          </button>
         </div>
       </aside>
 
